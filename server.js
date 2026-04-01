@@ -224,6 +224,18 @@ app.use(async (req, res) => {
     const cachedFile = getCachedFile(requestUrl);
     if (cachedFile) {
       console.log(`Serving from cache: ${requestUrl}`);
+      
+      // Определяем Content-Type по расширению
+      const ext = path.extname(cachedFile).toLowerCase();
+      let contentType = 'text/html; charset=utf-8';
+      
+      if (ext === '.css') {
+        contentType = 'text/css; charset=utf-8';
+      } else if (ext === '.js') {
+        contentType = 'application/javascript; charset=utf-8';
+      }
+      
+      res.set('Content-Type', contentType);
       return res.sendFile(cachedFile);
     }
     
