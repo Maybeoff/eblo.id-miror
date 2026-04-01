@@ -95,18 +95,6 @@ function convertToRelative(html, targetUrl) {
     }
   });
   
-  // Делаем кнопку авторизации неактивной
-  $('.auth-section a.auth-btn').each((i, elem) => {
-    const $btn = $(elem);
-    $btn.attr('href', 'javascript:void(0)');
-    $btn.css({
-      'opacity': '0.5',
-      'cursor': 'not-allowed',
-      'pointer-events': 'none'
-    });
-    $btn.attr('title', 'Вы используете зеркало, тут это невозможно');
-  });
-  
   // Добавляем кнопку "Открыть на eblo.id"
   $('.auth-section').append(`
     <a href="#" class="open-original-btn" onclick="window.open('https://eblo.id' + window.location.pathname, '_blank'); return false;">
@@ -114,40 +102,13 @@ function convertToRelative(html, targetUrl) {
     </a>
   `);
   
-  // Добавляем стили и скрипт для подсказки
+  // Добавляем стили
   $('head').append(`
     <style>
       .auth-section {
-        position: relative;
         display: flex;
         gap: 10px;
         align-items: center;
-      }
-      .auth-section::after {
-        content: 'Вы используете зеркало, тут это невозможно';
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0, 0, 0, 0.9);
-        color: white;
-        padding: 8px 12px;
-        border-radius: 4px;
-        font-size: 14px;
-        white-space: nowrap;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s;
-        margin-bottom: 8px;
-        z-index: 1000;
-      }
-      .auth-section:hover::after {
-        opacity: 1;
-      }
-      .auth-section .auth-btn {
-        opacity: 0.5 !important;
-        cursor: not-allowed !important;
-        pointer-events: none !important;
       }
       .open-original-btn {
         display: inline-flex;
