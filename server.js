@@ -2,55 +2,12 @@ const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { URL } = require('url');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
 
 const app = express();
 const PORT = 3000;
 
 // Укажи здесь оригинальный сайт
 const TARGET_SITE = 'https://eblo.id';
-
-// Папка для кеша
-const CACHE_DIR = path.join(__dirname, 'cache');
-
-// Создаём папку cache если её нет
-if (!fs.existsSync(CACHE_DIR)) {
-  fs.mkdirSync(CACHE_DIR, { recursive: true });
-}
-
-// Функция для генерации имени файла из URL
-function getCacheFilename(url) {
-  const hash = crypto.createHash('md5').update(url).digest('hex');
-  const ext = path.extname(url).split('?')[0] || '.cache';
-  return hash + ext;
-}
-
-// Функция для получения кешированного файла
-function getCachedFile(url) {
-  const filename = getCacheFilename(url);
-  const filepath = path.join(CACHE_DIR, filename);
-  
-  if (fs.existsSync(filepath)) {
-    return filepath;
-  }
-  return null;
-}
-
-// Функция для сохранения в кеш
-function saveToCache(url, data, isText = false) {
-  const filename = getCacheFilename(url);
-  const filepath = path.join(CACHE_DIR, filename);
-  
-  if (isText) {
-    fs.writeFileSync(filepath, data, 'utf-8');
-  } else {
-    fs.writeFileSync(filepath, data);
-  }
-  
-  console.log(`Cached: ${url}`);
-}
 
 // Функция для конвертации абсолютных URL в относительные
 function convertToRelative(html, targetUrl) {
@@ -217,28 +174,7 @@ function convertToRelative(html, targetUrl) {
 // Прокси для всех запросов
 app.use(async (req, res) => {
   try {
-    const requestUrl = req.url;
-    const targetUrl = TARGET_SITE + requestUrl;
-    
-    // Проверяем кеш для HTML, CSS, JS
-    const cachedFile = getCachedFile(requestUrl);
-    if (cachedFile) {
-      console.log(`Serving from cache: ${requestUrl}`);
-      
-      // Определяем Content-Type по расширению
-      const ext = path.extname(cachedFile).toLowerCase();
-      let contentType = 'text/html; charset=utf-8';
-      
-      if (ext === '.css') {
-        contentType = 'text/css; charset=utf-8';
-      } else if (ext === '.js') {
-        contentType = 'application/javascript; charset=utf-8';
-      }
-      
-      res.set('Content-Type', contentType);
-      return res.sendFile(cachedFile);
-    }
-    
+    const targetUrl = TARGET_SITE + req.url;
     console.log(`Proxying: ${targetUrl}`);
     
     const response = await axios.get(targetUrl, {
@@ -256,30 +192,19 @@ app.use(async (req, res) => {
     if (response.headers['content-disposition']) {
       res.set('Content-Disposition', response.headers['content-disposition']);
     }
+    if (response.headers['content-length']) {
+      res.set('Content-Length', response.headers['content-length']);
+    }
     
-    // Если это HTML, конвертируем ссылки и кешируем
+    // Если это HTML, конвертируем ссылки
     if (contentType.includes('text/html')) {
       const html = response.data.toString('utf-8');
       const modifiedHtml = convertToRelative(html, TARGET_SITE);
       
-      saveToCache(requestUrl, modifiedHtml, true);
-      
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.send(modifiedHtml);
-    } 
-    // Если это CSS или JS, кешируем
-    else if (contentType.includes('text/css') || contentType.includes('javascript')) {
-      saveToCache(requestUrl, response.data, false);
-      
-      res.set('Content-Type', contentType);
-      res.status(response.status);
-      res.send(response.data);
-    } 
-    // Для остальных типов отдаём без кеширования
-    else {
-      if (response.headers['content-length']) {
-        res.set('Content-Length', response.headers['content-length']);
-      }
+    } else {
+      // Для остальных типов (CSS, JS, изображения, файлы) отдаём как есть
       res.set('Content-Type', contentType);
       res.status(response.status);
       res.send(response.data);
