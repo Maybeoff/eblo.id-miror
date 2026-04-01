@@ -177,16 +177,51 @@ app.use(async (req, res) => {
     const targetUrl = TARGET_SITE + req.url;
     console.log(`Proxying: ${targetUrl}`);
     
-    const response = await axios.get(targetUrl, {
-      headers: {
-        'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0'
-      },
+    // Подготавливаем заголовки для проксирования
+    const proxyHeaders = {
+      'User-Agent': req.headers['user-agent'] || 'Mozilla/5.0'
+    };
+    
+    // Проксируем куки
+    if (req.headers.cookie) {
+      proxyHeaders['Cookie'] = req.headers.cookie;
+    }
+    
+    // Проксируем другие важные заголовки
+    if (req.headers.referer) {
+      proxyHeaders['Referer'] = req.headers.referer.replace('localhost:3000', 'eblo.id');
+    }
+    if (req.headers.origin) {
+      proxyHeaders['Origin'] = TARGET_SITE;
+    }
+    
+    const response = await axios({
+      method: req.method,
+      url: targetUrl,
+      headers: proxyHeaders,
+      data: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
       responseType: 'arraybuffer',
       validateStatus: () => true,
       maxRedirects: 5
     });
     
     const contentType = response.headers['content-type'] || '';
+    
+    // Проксируем Set-Cookie заголовки обратно клиенту
+    if (response.headers['set-cookie']) {
+      const cookies = Array.isArray(response.headers['set-cookie']) 
+        ? response.headers['set-cookie'] 
+        : [response.headers['set-cookie']];
+      
+      // Модифицируем куки чтобы они работали на localhost
+      const modifiedCookies = cookies.map(cookie => {
+        return cookie
+          .replace(/Domain=eblo\.id/gi, 'Domain=localhost')
+          .replace(/Domain=\.eblo\.id/gi, 'Domain=localhost');
+      });
+      
+      res.set('Set-Cookie', modifiedCookies);
+    }
     
     // Копируем важные заголовки из оригинального ответа
     if (response.headers['content-disposition']) {
