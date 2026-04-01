@@ -1,0 +1,11 @@
+{
+  "ignore": [
+    "rd.json",
+    "cache/*",
+    "node_modules/*"
+  ],
+  "watch": [
+    "server.js",
+    "package.json"
+  ]
+}
